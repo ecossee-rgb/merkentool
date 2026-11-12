@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oxfam Merkentool / Outil de Marques</title>
+  <link rel="icon" href="assets/oxfam-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img src="assets/oxfam-logo.png" alt="Oxfam" class="logo">
+    <h1 data-i18n="title">Merkentool</h1>
+    <div class="lang" role="group" aria-label="Taal / Langue">
+      <button type="button" data-lang="nl">NL</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Brand -->
+    <section class="card">
+      <h2><span class="step">1</span> <span data-i18n="brand">Merk</span></h2>
+      <div class="search">
+        <input id="brand-input" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="searchBrand">
+        <button type="button" class="clear" data-clear="brand" aria-label="×">×</button>
+        <ul id="brand-list" class="suggest" hidden></ul>
+      </div>
+      <p id="brand-msg" class="msg" hidden></p>
+      <div class="stars-row">
+        <span class="label" data-i18n="stars">Sterren</span>
+        <div id="star-picker" class="star-picker">
+          <button type="button" data-stars="1">*</button>
+          <button type="button" data-stars="2">**</button>
+          <button type="button" data-stars="3">***</button>
+          <button type="button" data-stars="4">****</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Item -->
+    <section class="card">
+      <h2><span class="step">2</span> <span data-i18n="item">Artikel</span></h2>
+      <nav id="cats" class="cats"></nav>
+      <div class="search">
+        <input id="item-input" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="searchItem">
+        <button type="button" class="clear" data-clear="item" aria-label="×">×</button>
+        <ul id="item-list" class="suggest" hidden></ul>
+      </div>
+    </section>
+
+    <!-- 3. Price -->
+    <section id="result" class="card result" hidden>
+      <h2><span class="step">3</span> <span data-i18n="price">Prijs</span></h2>
+      <div id="item-name" class="item-name"></div>
+      <div id="price-main" class="price-main"></div>
+      <p id="price-note" class="msg" hidden></p>
+      <table id="price-table" class="price-table"></table>
+      <div id="photos" class="photos"></div>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox" hidden><img alt=""></div>
+
+  <footer><span id="data-info"></span></footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

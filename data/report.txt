@@ -1,0 +1,54 @@
+MARQUES: 18201 marques, dont 2835 sans étoiles
+
+Notes d'étoiles inhabituelles (16):
+  ligne 21: '#NAME?' -> erreur Excel, ignorée
+  ligne 24: '#NAME?' -> erreur Excel, ignorée
+  ligne 2017: 'ben ben' -> '*****' (5 étoiles, compté comme ****)
+  ligne 8280: 'Jacquemus' -> '*****' (5 étoiles, compté comme ****)
+  ligne 8376: 'jean bailly' -> '*****' (5 étoiles, compté comme ****)
+  ligne 10122: 'Luna Bi' -> '*****' (5 étoiles, compté comme ****)
+  ligne 10381: 'manoukian' -> '*****' (5 étoiles, compté comme ****)
+  ligne 10749: 'MCQ Alexander McQueen' -> '*****' (5 étoiles, compté comme ****)
+  ligne 11276: 'MONITALY' -> '*****' (5 étoiles, compté comme ****)
+  ligne 14303: 'Rue Du Mail' -> '*****' (5 étoiles, compté comme ****)
+  ligne 18025: 'zanzarra' -> '**** of **' (lu comme ****)
+  ligne 18254: 'HUSBANDS' -> '*****' (5 étoiles, compté comme ****)
+  ligne 18255: 'Officine Générale' -> '*****' (5 étoiles, compté comme ****)
+  ligne 18263: 'ETRO' -> '*****' (5 étoiles, compté comme ****)
+  ligne 18377: 'SOUAD FERIANI' -> '****VINTAGE' (lu comme ****)
+  ligne 18384: 'Belise corporate' -> '**vetements travail' (lu comme **)
+
+Doublons avec des notes différentes (24):
+  ligne 810: 'ana alcazar' ****  (ligne 809: ***) -> *** gardé, À VÉRIFIER
+  ligne 1273: 'Artlove' ***  (ligne 1272: *) -> * gardé, À VÉRIFIER
+  ligne 2397: 'bleu blanc rouge' *  (ligne 2396: ****) -> **** gardé, À VÉRIFIER
+  ligne 2548: 'Bobbi Ravioli' *  (ligne 2547: **) -> ** gardé, À VÉRIFIER
+  ligne 7081: 'Gocco' ***  (ligne 7080: **) -> ** gardé, À VÉRIFIER
+  ligne 8711: 'jus de pom' **  (ligne 8710: *) -> * gardé, À VÉRIFIER
+  ligne 9131: "Kos'Sons" ****  (ligne 9130: ***) -> *** gardé, À VÉRIFIER
+  ligne 13367: 'primigi' **  (ligne 13366: sans étoiles) -> ** gardé
+  ligne 13368: 'Primigi' ***  (ligne 13366: **) -> ** gardé, À VÉRIFIER
+  ligne 13402: 'Prisa' *  (ligne 13401: sans étoiles) -> * gardé
+  ligne 13842: 'reima' ***  (ligne 13841: **) -> ** gardé, À VÉRIFIER
+  ligne 14060: 'roberta biagi' ****  (ligne 14059: sans étoiles) -> **** gardé
+  ligne 15173: 'sloggi' **  (ligne 15172: sans étoiles) -> ** gardé
+  ligne 15642: 'stone island' ***  (ligne 15641: ****) -> **** gardé, À VÉRIFIER
+  ligne 17876: 'yesyes' *  (ligne 17875: **) -> ** gardé, À VÉRIFIER
+  ligne 18030: 'zapp' ***  (ligne 18029: sans étoiles) -> *** gardé
+  ligne 18166: 'penn & ink' ***  (ligne 12853: sans étoiles) -> *** gardé
+  ligne 18167: 'pointer' **  (ligne 13212: sans étoiles) -> ** gardé
+  ligne 18170: 'pigalle' **  (ligne 13053: sans étoiles) -> ** gardé
+  ligne 18180: 'lina' **  (ligne 9753: *) -> * gardé, À VÉRIFIER
+  ligne 18187: 'Les prairies de paris' ****  (ligne 9639: ***) -> *** gardé, À VÉRIFIER
+  ligne 18193: 'Surkana' **  (ligne 15837: sans étoiles) -> ** gardé
+  ligne 18194: 'Mister tee' *  (ligne 11149: **) -> ** gardé, À VÉRIFIER
+  ligne 18382: 'HARBOUR MASTER' *  (ligne 7453: ***) -> *** gardé, À VÉRIFIER
+
+PRIX Femmes: 13 sections, 43 articles, 4 niveaux d'étoiles (14917f30-Liste_de_prix_Femmes43.docx)
+PRIX Hommes: 12 sections, 36 articles, 4 niveaux d'étoiles (36b5c2d5-Liste_de_prix_Hommes90.docx)
+PRIX Enfants: 13 sections, 60 articles, 4 niveaux d'étoiles (a566ef72-Liste_de_prix_Enfants32.docx)
+PRIX Bébés: 13 sections, 28 articles, 4 niveaux d'étoiles (97630c5d-Liste_de_prix_Bebes3.docx)
+PRIX Accessoires: 7 sections, 16 articles, 4 niveaux d'étoiles (386c6268-Liste_de_prix_Accessoires78.docx)
+PRIX Linge de maison: 6 sections, 23 articles, 3 niveaux d'étoiles (ecf27bd6-Liste_de_prix_Linge_de_maison96.docx)
+
+Problèmes dans les listes de prix (0):
