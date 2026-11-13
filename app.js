@@ -16,6 +16,13 @@
       noItem: "Geen artikel gevonden in deze categorie.",
       info: (b, i) => `${b} merken · ${i} artikels`,
       loadError: "De gegevens konden niet geladen worden.",
+      loginTitle: "Winkel", loginHelp: "Kies je winkel en geef de winkelcode in. De prijzen die je onthoudt, gelden voor heel de winkel.",
+      code: "Winkelcode", loginBtn: "OK", badCode: "Verkeerde code.", netError: "Geen verbinding met de databank.",
+      choosePrice: "Kies de prijs", refLabel: "Referentie Onlinefact", copy: "Kopiëren", copied: "Gekopieerd ✓",
+      save: (p, b) => `Onthoud ${p} voor ${b}`, saved: "Onthouden ✓", forget: "Vergeten",
+      needBrand: "Kies een merk om deze prijs te onthouden.",
+      prefIs: (b, p, r) => `Gewone prijs van de winkel voor <b>${b}</b>: <b>${p}</b> · ref. ${r}`,
+      prefOther: "(andere sterren)", localNote: "prijzen enkel op dit toestel onthouden (testmodus)", changeShop: "Andere winkel",
     },
     fr: {
       title: "Outil de Marques", brand: "Marque", stars: "Étoiles", item: "Article", price: "Prix",
@@ -27,11 +34,20 @@
       noItem: "Aucun article trouvé dans cette catégorie.",
       info: (b, i) => `${b} marques · ${i} articles`,
       loadError: "Les données n'ont pas pu être chargées.",
+      loginTitle: "Magasin", loginHelp: "Choisissez votre magasin et entrez le code du magasin. Les prix mémorisés valent pour tout le magasin.",
+      code: "Code magasin", loginBtn: "OK", badCode: "Code incorrect.", netError: "Pas de connexion à la base de données.",
+      choosePrice: "Choisissez le prix", refLabel: "Référence Onlinefact", copy: "Copier", copied: "Copié ✓",
+      save: (p, b) => `Mémoriser ${p} pour ${b}`, saved: "Mémorisé ✓", forget: "Oublier",
+      needBrand: "Choisissez une marque pour mémoriser ce prix.",
+      prefIs: (b, p, r) => `Prix habituel du magasin pour <b>${b}</b> : <b>${p}</b> · réf. ${r}`,
+      prefOther: "(autres étoiles)", localNote: "prix mémorisés sur cet appareil uniquement (mode test)", changeShop: "Changer de magasin",
     },
   };
 
   const $ = (id) => document.getElementById(id);
-  const S = { lang: "nl", brands: [], cats: [], cat: 0, stars: 0, brand: null, item: null };
+  const S = { lang: "nl", brands: [], cats: [], cat: 0, stars: 0, brand: null, item: null, sel: null };
+  const CFG = window.MERKENTOOL_CONFIG || {};
+  const REMOTE = !!(CFG.supabaseUrl && CFG.supabaseKey);
 
   /* ---------- helpers ---------- */
   const normChar = (c) => c.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -61,6 +77,58 @@
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
   };
+
+  /* ---------- shop preferences (Supabase or this device) ---------- */
+  const P = {
+    shop: null,          // {id, name, code}
+    map: new Map(),      // "brand|item" -> {price, ref, stars}
+    key: (brand, item) => brand.toLowerCase() + "|" + item,
+
+    async rpc(fn, args) {
+      const r = await fetch(CFG.supabaseUrl.replace(/\/$/, "") + "/rest/v1/rpc/" + fn, {
+        method: "POST",
+        headers: { apikey: CFG.supabaseKey, Authorization: "Bearer " + CFG.supabaseKey, "Content-Type": "application/json" },
+        body: JSON.stringify(args || {}),
+      });
+      if (!r.ok) {
+        let msg = "";
+        try { msg = (await r.json()).message || ""; } catch (e) { /* ignore */ }
+        const err = new Error(msg || "HTTP " + r.status);
+        err.badCode = /bad shop code/.test(msg);
+        throw err;
+      }
+      const txt = await r.text();
+      return txt ? JSON.parse(txt) : null;
+    },
+
+    async load() {
+      this.map.clear();
+      if (!REMOTE) {
+        try { for (const [k, v] of Object.entries(JSON.parse(store.get("merkentool-prefs") || "{}"))) this.map.set(k, v); } catch (e) { /* ignore */ }
+        return;
+      }
+      if (!this.shop) return;
+      const rows = await this.rpc("get_prefs", { p_shop: this.shop.id, p_code: this.shop.code });
+      for (const r of rows) this.map.set(this.key(r.brand, r.item), { price: +r.price, ref: r.ref, stars: r.stars });
+    },
+    saveLocal() {
+      store.set("merkentool-prefs", JSON.stringify(Object.fromEntries(this.map)));
+    },
+    get(brand, item) { return this.map.get(this.key(brand, item)); },
+    async set(brand, item, label, stars, price, ref) {
+      if (REMOTE) await this.rpc("set_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item, p_label: label, p_stars: stars, p_price: price, p_ref: ref });
+      this.map.set(this.key(brand, item), { price, ref, stars });
+      if (!REMOTE) this.saveLocal();
+    },
+    async del(brand, item) {
+      if (REMOTE) await this.rpc("del_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item });
+      this.map.delete(this.key(brand, item));
+      if (!REMOTE) this.saveLocal();
+    },
+  };
+
+  const itemKey = (it) => S.cats[S.cat].id + ":" + it.nl;
+  const itemLabel = (it) => S.cats[S.cat].fr + " – " + it.fr;
 
   /* ---------- generic suggestion list ---------- */
   function makeSuggest(input, list, getRows, onPick) {
@@ -141,6 +209,7 @@
 
   function pickBrand(b) {
     S.brand = b;
+    S.sel = null;
     $("brand-input").value = b.name;
     setStars(b.stars);
     showBrandMsg();
@@ -162,7 +231,7 @@
   }
 
   function clearBrand() {
-    S.brand = null; S.brandNoMatch = false;
+    S.brand = null; S.brandNoMatch = false; S.sel = null;
     $("brand-input").value = "";
     setStars(0);
     showBrandMsg();
@@ -171,6 +240,7 @@
   /* ---------- stars ---------- */
   function setStars(n) {
     S.stars = n;
+    S.sel = null;
     document.querySelectorAll("#star-picker button").forEach((b) => b.classList.toggle("on", +b.dataset.stars === n));
     renderResult();
   }
@@ -200,13 +270,14 @@
 
   function pickItem(it) {
     S.item = it;
+    S.sel = null;
     $("item-input").value = it[S.lang];
     $("item-input").blur();
     renderResult();
   }
 
   function clearItem() {
-    S.item = null;
+    S.item = null; S.sel = null;
     $("item-input").value = "";
     renderResult();
   }
@@ -244,6 +315,148 @@
     $("price-table").innerHTML = `<tr>${head}</tr><tr>${body}</tr>`;
 
     $("photos").innerHTML = (it.img || []).map((f) => `<img src="photos/${esc(f)}" alt="" loading="lazy">`).join("");
+    renderChoice(it, cat, lv);
+  }
+
+  function renderChoice(it, cat, lv) {
+    const t = T[S.lang];
+    const pref = S.brand ? P.get(S.brand.name, itemKey(it)) : null;
+    const opts = lv && it.r ? it.r[lv - 1] || [] : [];
+
+    // the shop's usual price for this brand + item is pre-selected
+    if (!S.sel && pref) S.sel = { price: pref.price, ref: pref.ref };
+
+    const banner = $("pref-banner");
+    banner.hidden = !pref;
+    if (pref) {
+      const inLevel = opts.some((o) => o[1] === pref.ref);
+      banner.innerHTML = t.prefIs(esc(S.brand.name), esc(fmtRange([pref.price, pref.price])), esc(pref.ref)) +
+        (inLevel || !lv ? "" : ` <small>${t.prefOther}</small>`);
+    }
+
+    $("choose").hidden = !opts.length;
+    $("price-chips").innerHTML = opts.map(([p, ref]) =>
+      `<button type="button" data-ref="${esc(ref)}" data-price="${p}" class="${S.sel && S.sel.ref === ref ? "on" : ""} ${pref && pref.ref === ref ? "pref" : ""}">${esc(fmtNum(p))} €</button>`
+    ).join("");
+
+    const box = $("ref-box");
+    box.hidden = !S.sel;
+    if (!S.sel) return;
+    $("ref-value").textContent = S.sel.ref;
+    $("ref-copy").textContent = t.copy;
+    const save = $("save-pref"), del = $("del-pref"), msg = $("save-msg");
+    msg.textContent = ""; msg.className = "msg";
+    if (!S.brand) {
+      save.hidden = true; del.hidden = true;
+      msg.textContent = t.needBrand;
+      return;
+    }
+    const isSaved = pref && pref.ref === S.sel.ref;
+    save.hidden = false;
+    save.disabled = isSaved;
+    save.textContent = isSaved ? t.saved : t.save(fmtRange([S.sel.price, S.sel.price]), S.brand.name);
+    del.hidden = !pref;
+  }
+
+  async function savePref() {
+    const it = S.item, t = T[S.lang];
+    if (!it || !S.brand || !S.sel) return;
+    const btn = $("save-pref");
+    btn.disabled = true;
+    try {
+      await P.set(S.brand.name, itemKey(it), itemLabel(it), Math.min(S.stars, S.cats[S.cat].levels) || null, S.sel.price, S.sel.ref);
+      renderResult();
+    } catch (e) {
+      handleRemoteError(e);
+      btn.disabled = false;
+    }
+  }
+
+  async function delPref() {
+    const it = S.item;
+    if (!it || !S.brand) return;
+    try {
+      await P.del(S.brand.name, itemKey(it));
+      S.sel = null;
+      renderResult();
+    } catch (e) { handleRemoteError(e); }
+  }
+
+  function handleRemoteError(e) {
+    console.error(e);
+    const msg = $("save-msg");
+    if (e.badCode) { logout(); return; }
+    msg.textContent = T[S.lang].netError;
+    msg.className = "msg warn";
+  }
+
+  /* ---------- shop login ---------- */
+  function showShop() {
+    const b = $("shop-btn"), t = T[S.lang];
+    if (!REMOTE) { b.hidden = true; return; }
+    b.hidden = !P.shop;
+    if (P.shop) { b.textContent = "🏬 " + P.shop.name; b.title = t.changeShop; }
+  }
+
+  async function openLogin(err) {
+    const t = T[S.lang];
+    $("login").hidden = false;
+    $("login-msg").hidden = !err;
+    $("login-msg").textContent = err || "";
+    const sel = $("login-shop");
+    if (!sel.options.length) {
+      try {
+        const shops = await P.rpc("list_shops");
+        sel.innerHTML = shops.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+        const last = store.get("merkentool-last-shop");
+        if (last) sel.value = last;
+      } catch (e) {
+        console.error(e);
+        $("login-msg").hidden = false;
+        $("login-msg").textContent = t.netError;
+      }
+    }
+    $("login-code").value = "";
+    $("login-code").focus();
+    lockMain(true);
+  }
+
+  function lockMain(on) {
+    document.querySelectorAll("main > .card:not(.login)").forEach((c) => (c.style.display = on ? "none" : ""));
+  }
+
+  async function doLogin() {
+    const t = T[S.lang];
+    const sel = $("login-shop");
+    const id = +sel.value, code = $("login-code").value.trim();
+    if (!id || !code) return;
+    $("login-go").disabled = true;
+    try {
+      const ok = await P.rpc("shop_login", { p_shop: id, p_code: code });
+      if (!ok) { $("login-msg").hidden = false; $("login-msg").textContent = t.badCode; return; }
+      P.shop = { id, name: sel.options[sel.selectedIndex].text, code };
+      store.set("merkentool-shop", JSON.stringify(P.shop));
+      store.set("merkentool-last-shop", String(id));
+      await P.load();
+      $("login").hidden = true;
+      lockMain(false);
+      showShop();
+      renderResult();
+    } catch (e) {
+      console.error(e);
+      $("login-msg").hidden = false;
+      $("login-msg").textContent = t.netError;
+    } finally {
+      $("login-go").disabled = false;
+    }
+  }
+
+  function logout() {
+    P.shop = null;
+    P.map.clear();
+    store.set("merkentool-shop", "");
+    showShop();
+    openLogin();
   }
 
   /* ---------- language ---------- */
@@ -261,13 +474,15 @@
     showBrandMsg();
     renderResult();
     updateInfo();
+    showShop();
   }
 
   function updateInfo() {
     if (!S.cats.length) return;
     const n = S.cats.reduce((a, c) => a + c.sections.reduce((x, s) => x + s.items.length, 0), 0);
     const fmt = (v) => v.toLocaleString(S.lang === "nl" ? "nl-BE" : "fr-BE");
-    $("data-info").textContent = T[S.lang].info(fmt(S.brands.length), fmt(n)) + (S.built ? ` · ${S.built}` : "");
+    $("data-info").textContent = T[S.lang].info(fmt(S.brands.length), fmt(n)) + (S.built ? ` · ${S.built}` : "") +
+      (REMOTE ? "" : ` · ${T[S.lang].localNote}`);
   }
 
   /* ---------- init ---------- */
@@ -330,8 +545,42 @@
     $("lightbox").addEventListener("click", () => ($("lightbox").hidden = true));
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("lightbox").hidden = true; });
 
+    $("price-chips").addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      S.sel = { price: +b.dataset.price, ref: b.dataset.ref };
+      renderResult();
+    });
+    $("pref-banner").addEventListener("click", () => {
+      const pref = S.brand && S.item && P.get(S.brand.name, itemKey(S.item));
+      if (pref) { S.sel = { price: pref.price, ref: pref.ref }; renderResult(); }
+    });
+    $("ref-copy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText($("ref-value").textContent); $("ref-copy").textContent = T[S.lang].copied; }
+      catch (e) { /* clipboard not available */ }
+    });
+    $("save-pref").addEventListener("click", savePref);
+    $("del-pref").addEventListener("click", delPref);
+    $("shop-btn").addEventListener("click", logout);
+    $("login-go").addEventListener("click", doLogin);
+    $("login-code").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+
     renderCats();
     updateInfo();
+
+    if (REMOTE) {
+      try { P.shop = JSON.parse(store.get("merkentool-shop") || "null"); } catch (e) { P.shop = null; }
+      if (!P.shop) { openLogin(); }
+      else {
+        try { await P.load(); }
+        catch (e) { console.error(e); if (e.badCode) { logout(); return; } }
+        showShop();
+      }
+      // pick up prices saved by colleagues when coming back to the tab
+      window.addEventListener("focus", () => { if (P.shop) P.load().then(renderResult).catch(() => {}); });
+    } else {
+      await P.load();
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);

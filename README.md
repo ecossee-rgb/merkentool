@@ -2,6 +2,8 @@
 
 Version web de l'outil « Oxfam Textile Tool » (application Windows). On cherche une marque, l'outil donne ses étoiles. On choisit ensuite un article, et l'outil affiche la fourchette de prix pour ces étoiles, avec des photos d'exemple. L'outil est disponible en NL et en FR, et fonctionne sur PC, tablette et smartphone.
 
+Le vendeur choisit ensuite **son prix** dans la fourchette, et l'outil affiche la **référence Onlinefact** du produit à scanner ou à taper à la caisse. Il peut **mémoriser ce prix pour la marque** : la prochaine fois, dans ce magasin, la même marque et le même article afficheront directement ce prix et sa référence. Les prix mémorisés sont partagés par tous les appareils du magasin, grâce à une petite base de données gratuite (Supabase).
+
 Il n'y a rien à installer : c'est un site statique, hébergé gratuitement sur **GitHub Pages**.
 
 ## Mise en ligne (une seule fois)
@@ -14,6 +16,34 @@ Il n'y a rien à installer : c'est un site statique, hébergé gratuitement sur 
 
 > Le site est public : toute personne qui a le lien peut le voir. Il ne contient que les marques, les étoiles et les fourchettes de prix, aucune donnée personnelle.
 
+## Activer les prix mémorisés par magasin (Supabase, une seule fois)
+
+Tant que `config.js` est vide, l'outil fonctionne en **mode test** : les prix sont mémorisés uniquement sur l'appareil.
+
+1. Créez un compte gratuit sur **https://supabase.com**, de préférence avec une adresse Oxfam partagée, puis cliquez sur **New project**. Donnez-lui le nom `merkentool`, choisissez un mot de passe (à garder) et la région **Europe (Frankfurt ou Paris)**.
+2. Dans le projet, allez dans **SQL Editor → New query**. Collez tout le contenu de `supabase/setup.sql` et cliquez sur **Run**.
+3. Toujours dans le SQL Editor, créez vos magasins, un code par magasin, puis cliquez sur **Run** :
+   ```sql
+   select add_shop('Namur', '4821');
+   select add_shop('Gent', '7310');
+   ```
+   La même commande change le code d'un magasin existant. `select disable_shop('Namur');` retire un magasin de la liste.
+4. Allez dans **Project Settings → API** et copiez la **Project URL** et la clé **anon / public** (parfois appelée *publishable*). N'utilisez **jamais** la clé *service_role / secret*.
+5. Sur GitHub, ouvrez `config.js`, cliquez sur le crayon ✏️ et collez les deux valeurs :
+   ```js
+   window.MERKENTOOL_CONFIG = {
+     supabaseUrl: "https://xxxxxxxx.supabase.co",
+     supabaseKey: "eyJhbGciOi..."
+   };
+   ```
+   Cliquez sur **Commit changes**. Une à deux minutes plus tard, l'outil demande le magasin et son code au premier lancement sur chaque appareil.
+
+La clé *anon* peut être visible publiquement : elle donne seulement accès aux fonctions de l'outil, et chaque lecture ou écriture vérifie le code du magasin.
+
+**Voir les prix de tous les magasins** : dans Supabase, ouvrez **Table Editor → pref_report**, ou lancez `select * from pref_report;` dans le SQL Editor. Vous pouvez ensuite exporter le résultat en CSV.
+
+**Bon à savoir** : sur le plan gratuit, Supabase met le projet en pause après 7 jours sans aucune utilisation. Cela ne devrait pas arriver si les magasins utilisent l'outil. S'il est en pause, un clic sur *Restore* dans Supabase suffit, et rien n'est perdu.
+
 ## Mettre à jour les marques ou les prix
 
 Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/`. Elles sont générées depuis les fichiers Excel et Word habituels. Ne modifiez pas ces fichiers à la main.
@@ -22,9 +52,9 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
    ```
    pip install openpyxl python-docx pillow
    ```
-2. Placez le fichier Excel des marques et les 6 fichiers Word `Liste_de_prix_*.docx` dans un dossier, puis lancez depuis ce dossier-ci :
+2. Placez le fichier Excel des marques et les 6 fichiers Word `Liste_de_prix_*.docx` dans un dossier. Préparez aussi le fichier d'import des produits Onlinefact (CSV), puis lancez depuis ce dossier-ci :
    ```
-   python tools/build_data.py --brands "chemin/vers/Merkentool.xlsx" --prices "chemin/vers/dossier_word"
+   python tools/build_data.py --brands "chemin/vers/Merkentool.xlsx" --prices "chemin/vers/dossier_word" --onlinefact "chemin/vers/Import_produits.csv"
    ```
 3. Sur GitHub, téléversez les nouveaux dossiers `data` et `photos`, qui remplacent les anciens. Le site se met à jour en une à deux minutes.
 
@@ -33,7 +63,11 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
 - **Excel des marques** : 1re feuille, colonne A = marque, colonne B = étoiles (`*` à `****`), colonne D = remarque (facultatif). La 1re ligne est un en-tête.
 - **Word des prix** : un fichier par catégorie, dont le nom contient `Femmes`, `Hommes`, `Enfants`, `Bebes`/`Bébés`, `Accessoires` ou `Linge`. On y trouve d'abord le titre, puis, pour chaque section, un titre suivi d'un tableau : `Article / Artikel | * | ** | *** | **** | Photos`. Chaque article s'écrit `nom FR`, retour à la ligne, `nom NL`. Les prix se notent `3-5€`, `2,5-4€` ou `30€`. Les photos sont collées dans la dernière colonne.
 
-À chaque génération, le script écrit **`data/report.txt`**. Ce fichier liste les points à corriger dans la source : étoiles mal saisies et marques en double avec des notes différentes.
+- **CSV Onlinefact** (séparateur `;`) : colonnes `Reference`, `Description`, `Price`. La description s'écrit `<Vrouw|Man|Kind|Baby|Accessoires|Huishoudtextiel> - <nom NL de l'article> <étoiles>`, par exemple `Vrouw - Jeans ***`. Il faut un produit par article, par niveau d'étoiles et par prix.
+
+À chaque génération, le script écrit **`data/report.txt`**. Ce fichier liste les points à corriger dans la source : étoiles mal saisies, marques en double avec des notes différentes, produits Onlinefact sans article correspondant, et articles sans référence.
+
+**Attention aux noms d'articles** : un prix mémorisé est lié au nom NL de l'article. Si un article est renommé dans les listes de prix, les prix déjà mémorisés pour cet article ne s'affichent plus.
 
 ## Règles appliquées
 
@@ -41,12 +75,16 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
 - Marque sans étoiles : un message s'affiche et les étoiles se choisissent à la main.
 - 5 étoiles (`*****`) dans le fichier Excel : compté comme `****`.
 - Linge de maison : 3 niveaux seulement. Une marque `****` reçoit le prix `***`, avec un message.
+- Choix du prix : seuls les prix qui existent comme produit dans Onlinefact sont proposés, donc chaque prix a une référence valide.
+- Prix mémorisé : il est lié au magasin, à la marque et à l'article, quelles que soient les étoiles. S'il appartient à un autre niveau d'étoiles que celui affiché, il est quand même rappelé, avec la mention « autres étoiles ».
 - Marque en double dans l'Excel : la note est gardée. Si une seule ligne a des étoiles, c'est elle qui compte. Si les deux en ont, c'est la première qui compte (voir `report.txt`).
 
 ## Contenu
 
 ```
 index.html, app.js, style.css   l'application
+config.js                        connexion à Supabase (vide = mode test)
+supabase/setup.sql               script de la base de données
 data/brands.json                 marques + étoiles
 data/prices.json                 catégories, sections, articles, prix, photos
 data/report.txt                  rapport de la dernière génération

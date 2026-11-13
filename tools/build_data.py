@@ -14,6 +14,11 @@ Inputs
             table per section. Table: Article/Artikel | * | ** | ... | Photos.
             Item cell = French name, line break, Dutch name. Prices "3-5€", "2,5€".
 
+  --onlinefact  (optional) Onlinefact product import CSV (";"-separated):
+            Reference;Description;Description_lang2;...;Price;...
+            Description = "<Vrouw|Man|Kind|Baby|Accessoires|Huishoudtextiel> - <NL item name> <stars>"
+            One product per item, star level and price.
+
 Outputs (overwritten)
   data/brands.json, data/prices.json, photos/*.jpg, data/report.txt
 """
@@ -200,10 +205,66 @@ def build_prices(folder, report, photo_dir):
     return cats
 
 
+OF_PREFIX = {"vrouw": "women", "man": "men", "kind": "kids", "baby": "baby",
+             "accessoires": "accessories", "huishoudtextiel": "household"}
+OF_RX = re.compile(r"^(.*?) - (.*?) (\*+)$")
+
+
+def _key(s):
+    return re.sub(r"\s+", " ", s.strip().lower().replace("\u2019", "'"))
+
+
+def add_onlinefact(path, cats, report):
+    """Attach Onlinefact references: item["r"] = [[[price, ref], ...] per star level]."""
+    import csv
+    index = {}
+    for c in cats:
+        for s in c["sections"]:
+            for it in s["items"]:
+                index[(c["id"], _key(it["nl"]))] = (c, it)
+                it["r"] = [[] for _ in range(c["levels"])]
+    unmatched, outside, n = [], [], 0
+    with open(path, encoding="utf-8-sig", newline="") as fh:
+        for row in csv.DictReader(fh, delimiter=";"):
+            m = OF_RX.match((row.get("Description") or "").strip())
+            if not m:
+                unmatched.append(f"  {row.get('Reference')}: description illisible {row.get('Description')!r}")
+                continue
+            cid = OF_PREFIX.get(m.group(1).strip().lower())
+            hit = index.get((cid, _key(m.group(2))))
+            lv = len(m.group(3))
+            if not hit or lv > hit[0]["levels"]:
+                unmatched.append(f"  {row['Reference']}: {row['Description']!r} -> pas d'article correspondant")
+                continue
+            c, it = hit
+            price = num(row["Price"].strip())
+            lo, hi = it["p"][lv - 1] or (None, None)
+            if lo is not None and not (lo - 1e-9 <= price <= hi + 1e-9):
+                outside.append(f"  {row['Reference']}: {row['Description']} {price} € hors fourchette {lo}-{hi}")
+            it["r"][lv - 1].append([price, row["Reference"].strip()])
+            n += 1
+    missing = []
+    for c in cats:
+        for s in c["sections"]:
+            for it in s["items"]:
+                for i, lst in enumerate(it["r"]):
+                    lst.sort()
+                    if not lst:
+                        missing.append(f"  {c['fr']} / {it['fr']} {'*' * (i + 1)}: aucune référence")
+    report.append(f"\nONLINEFACT: {n} références liées ({os.path.basename(path)})")
+    report.append(f"Produits Onlinefact sans article ({len(unmatched)}):")
+    report += unmatched
+    report.append(f"Prix hors fourchette ({len(outside)}):")
+    report += outside
+    report.append(f"Articles/étoiles sans référence ({len(missing)}):")
+    report += missing
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--brands", required=True)
     ap.add_argument("--prices", required=True)
+    ap.add_argument("--onlinefact")
     a = ap.parse_args()
 
     data_dir = os.path.join(ROOT, "data")
@@ -217,6 +278,8 @@ def main():
     brands = build_brands(a.brands, report)
     report.append("")
     cats = build_prices(a.prices, report, photo_dir)
+    if a.onlinefact:
+        add_onlinefact(a.onlinefact, cats, report)
 
     with open(os.path.join(data_dir, "brands.json"), "w", encoding="utf-8") as fh:
         json.dump(brands, fh, ensure_ascii=False, separators=(",", ":"))

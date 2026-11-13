@@ -122,3 +122,43 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px
   .star-picker { flex: 1; }
   .price-main { font-size: 1.9rem; }
 }
+
+/* ---------- shop / login ---------- */
+.shop-btn {
+  border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 10px;
+  font-weight: 600; color: var(--green-dark); max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.login { border: 2px solid var(--green); }
+.login-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.login-row select, .login-row input {
+  flex: 1 1 160px; padding: 11px 12px; font-size: 1rem; border: 2px solid var(--line); border-radius: 10px; background: #fff;
+}
+.btn-primary {
+  border: 0; background: var(--green); color: #fff; font-weight: 700; padding: 11px 18px; border-radius: 10px;
+}
+.btn-primary:disabled { background: #b9c9ad; cursor: default; }
+.btn-light { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 600; }
+.btn-link { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 6px; }
+
+/* ---------- price choice ---------- */
+.pref-banner {
+  margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: #eef5e8; border: 1px solid #cfe3c2;
+  cursor: pointer;
+}
+.pref-banner b { font-size: 1.05rem; }
+.choose { margin-top: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chips button {
+  min-width: 70px; padding: 10px 12px; border: 2px solid var(--line); background: #fff; border-radius: 10px;
+  font-weight: 700; font-size: 1.05rem;
+}
+.chips button.on { background: var(--green); border-color: var(--green); color: #fff; }
+.chips button.pref:not(.on) { border-color: var(--green); }
+.ref-box {
+  margin-top: 16px; padding: 14px; border-radius: 12px; background: #f6f8f3; border: 2px dashed var(--green);
+  display: grid; gap: 12px;
+}
+.ref-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.ref-value { font: 800 1.6rem/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .02em; }
+.save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.msg.ok { color: var(--green-dark); }

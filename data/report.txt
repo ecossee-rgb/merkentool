@@ -52,3 +52,8 @@ PRIX Accessoires: 7 sections, 16 articles, 4 niveaux d'étoiles (386c6268-Liste_
 PRIX Linge de maison: 6 sections, 23 articles, 3 niveaux d'étoiles (ecf27bd6-Liste_de_prix_Linge_de_maison96.docx)
 
 Problèmes dans les listes de prix (0):
+
+ONLINEFACT: 2723 références liées (import.csv)
+Produits Onlinefact sans article (0):
+Prix hors fourchette (0):
+Articles/étoiles sans référence (0):
