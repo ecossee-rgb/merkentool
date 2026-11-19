@@ -112,7 +112,7 @@ $$;
 
 -- Vue de contrôle : tous les prix mémorisés, par magasin (Table Editor > pref_report)
 create or replace view public.pref_report with (security_invoker = true) as
-  select s.name as magasin, p.brand as marque, p.item_label as article,
+  select s.name as magasin, case when p.brand = '*' then '(toutes marques)' else p.brand end as marque, p.item_label as article,
          repeat('*', coalesce(p.stars, 0)) as etoiles, p.price as prix, p.ref as ref_onlinefact,
          p.updated_at as modifie_le
   from public.prefs p join public.shops s on s.id = p.shop_id

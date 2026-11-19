@@ -162,3 +162,20 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px
 .ref-value { font: 800 1.6rem/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .02em; }
 .save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .msg.ok { color: var(--green-dark); }
+
+/* ---------- new order: shop first, optional brand ---------- */
+.optional { font-weight: 400; color: var(--muted); font-size: .9rem; }
+#shop-card.todo { border: 2px solid var(--green); }
+.shop-current { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.shop-name { font-weight: 700; font-size: 1.1rem; color: var(--green-dark); }
+.chip-levels { display: grid; gap: 10px; margin-top: 14px; }
+.chip-level { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip-level .chips { margin-top: 0; }
+.chip-stars {
+  min-width: 56px; font: 700 .95rem monospace; letter-spacing: 2px; color: var(--muted);
+  padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); text-align: center;
+}
+.chip-stars.lv1, .chip-stars.lv2, .chip-stars.lv3, .chip-stars.lv4 { border-width: 1px; }
+.range-block { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.range-block .price-main { font-size: 1.6rem; padding: 10px; margin-top: 8px; }
+.range-block .price-main.empty { font-size: .95rem; }

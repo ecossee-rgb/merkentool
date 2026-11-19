@@ -1,8 +1,8 @@
 # Oxfam Merkentool / Outil de Marques (version web)
 
-Version web de l'outil « Oxfam Textile Tool » (application Windows). On cherche une marque, l'outil donne ses étoiles. On choisit ensuite un article, et l'outil affiche la fourchette de prix pour ces étoiles, avec des photos d'exemple. L'outil est disponible en NL et en FR, et fonctionne sur PC, tablette et smartphone.
+Version web de l'outil « Oxfam Textile Tool » (application Windows). Dans l'ordre : on choisit **1. le magasin**, **2. l'article**, puis **3. la marque** (facultatif ; l'outil donne ses étoiles), et enfin **4. le prix**. La fourchette de prix et des photos d'exemple sont affichées en dessous. L'outil est disponible en NL et en FR, et fonctionne sur PC, tablette et smartphone.
 
-Le vendeur choisit ensuite **son prix** dans la fourchette, et l'outil affiche la **référence Onlinefact** du produit à scanner ou à taper à la caisse. Il peut **mémoriser ce prix pour la marque** : la prochaine fois, dans ce magasin, la même marque et le même article afficheront directement ce prix et sa référence. Les prix mémorisés sont partagés par tous les appareils du magasin, grâce à une petite base de données gratuite (Supabase).
+Le vendeur choisit ensuite **son prix** dans la fourchette, et l'outil affiche la **référence Onlinefact** du produit à scanner ou à taper à la caisse. Il peut **mémoriser ce prix**, pour une marque ou pour l'article sans marque : la prochaine fois, dans ce magasin, la même marque et le même article afficheront directement ce prix et sa référence. Les prix mémorisés sont partagés par tous les appareils du magasin, grâce à une petite base de données gratuite (Supabase).
 
 Il n'y a rien à installer : c'est un site statique, hébergé gratuitement sur **GitHub Pages**.
 
@@ -76,7 +76,9 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
 - 5 étoiles (`*****`) dans le fichier Excel : compté comme `****`.
 - Linge de maison : 3 niveaux seulement. Une marque `****` reçoit le prix `***`, avec un message.
 - Choix du prix : seuls les prix qui existent comme produit dans Onlinefact sont proposés, donc chaque prix a une référence valide.
-- Prix mémorisé : il est lié au magasin, à la marque et à l'article, quelles que soient les étoiles. S'il appartient à un autre niveau d'étoiles que celui affiché, il est quand même rappelé, avec la mention « autres étoiles ».
+- Sans marque ni étoiles, tous les prix de l'article sont proposés, classés par étoiles.
+- Un prix mémorisé sans marque sert aussi de proposition quand on choisit une marque avec le même nombre d'étoiles, tant que cette marque n'a pas son propre prix.
+- Prix mémorisé : il est lié au magasin, à la marque (ou « toutes marques ») et à l'article, quelles que soient les étoiles. S'il appartient à un autre niveau d'étoiles que celui affiché, il est quand même rappelé, avec la mention « autres étoiles ».
 - Marque en double dans l'Excel : la note est gardée. Si une seule ligne a des étoiles, c'est elle qui compte. Si les deux en ont, c'est la première qui compte (voir `report.txt`).
 
 ## Contenu
@@ -84,6 +86,7 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
 ```
 index.html, app.js, style.css   l'application
 config.js                        connexion à Supabase (vide = mode test)
+data/shops.json                  liste des magasins (utilisée en mode test)
 supabase/setup.sql               script de la base de données
 data/brands.json                 marques + étoiles
 data/prices.json                 catégories, sections, articles, prix, photos

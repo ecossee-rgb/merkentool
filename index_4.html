@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oxfam Merkentool / Outil de Marques</title>
+  <link rel="icon" href="assets/oxfam-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img src="assets/oxfam-logo.png" alt="Oxfam" class="logo">
+    <h1 data-i18n="title">Merkentool</h1>
+    <div class="lang" role="group" aria-label="Taal / Langue">
+      <button type="button" data-lang="nl">NL</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Shop -->
+    <section class="card" id="shop-card">
+      <h2><span class="step">1</span> <span data-i18n="shop">Winkel</span></h2>
+      <div id="shop-form" class="login-row">
+        <select id="shop-select"></select>
+        <input id="shop-code" type="password" inputmode="numeric" autocomplete="off" data-i18n-ph="code" hidden>
+        <button type="button" id="shop-ok" class="btn-primary" data-i18n="loginBtn" hidden>OK</button>
+      </div>
+      <div id="shop-current" class="shop-current" hidden>
+        <span id="shop-name" class="shop-name"></span>
+        <button type="button" id="shop-change" class="btn-link" data-i18n="changeShop">Andere winkel</button>
+      </div>
+      <p id="shop-msg" class="msg warn" hidden></p>
+    </section>
+
+    <!-- 2. Item -->
+    <section class="card">
+      <h2><span class="step">2</span> <span data-i18n="item">Artikel</span></h2>
+      <nav id="cats" class="cats"></nav>
+      <div class="search">
+        <input id="item-input" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="searchItem">
+        <button type="button" class="clear" data-clear="item" aria-label="×">×</button>
+        <ul id="item-list" class="suggest" hidden></ul>
+      </div>
+    </section>
+
+    <!-- 3. Brand (optional) -->
+    <section class="card">
+      <h2><span class="step">3</span> <span data-i18n="brand">Merk</span> <span class="optional" data-i18n="optional">(optioneel)</span></h2>
+      <div class="search">
+        <input id="brand-input" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="searchBrand">
+        <button type="button" class="clear" data-clear="brand" aria-label="×">×</button>
+        <ul id="brand-list" class="suggest" hidden></ul>
+      </div>
+      <p id="brand-msg" class="msg" hidden></p>
+      <div class="stars-row">
+        <span class="label" data-i18n="stars">Sterren</span>
+        <div id="star-picker" class="star-picker">
+          <button type="button" data-stars="1">*</button>
+          <button type="button" data-stars="2">**</button>
+          <button type="button" data-stars="3">***</button>
+          <button type="button" data-stars="4">****</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Price -->
+    <section id="result" class="card result" hidden>
+      <h2><span class="step">4</span> <span id="price-title" data-i18n="choosePrice">Kies je prijs</span></h2>
+      <div id="item-name" class="item-name"></div>
+
+      <div id="price-chips" class="chip-levels"></div>
+
+      <div id="ref-box" class="ref-box" hidden>
+        <div>
+          <div class="label" data-i18n="refLabel">Referentie Onlinefact</div>
+          <div class="ref-line"><span id="ref-value" class="ref-value"></span><button type="button" id="ref-copy" class="btn-light" data-i18n="copy">Kopiëren</button></div>
+        </div>
+        <div class="save-row">
+          <button type="button" id="save-pref" class="btn-primary"></button>
+          <button type="button" id="del-pref" class="btn-link" data-i18n="forget" hidden>Vergeten</button>
+          <span id="save-msg" class="msg"></span>
+        </div>
+      </div>
+
+      <div class="range-block">
+        <div class="label" data-i18n="range">Prijsvork</div>
+        <div id="price-main" class="price-main"></div>
+        <p id="price-note" class="msg" hidden></p>
+        <table id="price-table" class="price-table"></table>
+      </div>
+      <div id="photos" class="photos"></div>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox" hidden><img alt=""></div>
+
+  <footer><span id="data-info"></span></footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
