@@ -2,7 +2,7 @@
 
 Version web de l'outil « Oxfam Textile Tool » (application Windows). Dans l'ordre : on choisit **1. le magasin**, **2. l'article**, puis **3. la marque** (facultatif ; l'outil donne ses étoiles), et enfin **4. le prix**. La fourchette de prix et des photos d'exemple sont affichées en dessous. L'outil est disponible en NL et en FR, et fonctionne sur PC, tablette et smartphone.
 
-Le vendeur choisit ensuite **son prix** dans la fourchette, et l'outil affiche la **référence Onlinefact** du produit à scanner ou à taper à la caisse. Il peut **mémoriser ce prix**, pour une marque ou pour l'article sans marque : la prochaine fois, dans ce magasin, la même marque et le même article afficheront directement ce prix et sa référence. Les prix mémorisés sont partagés par tous les appareils du magasin, grâce à une petite base de données gratuite (Supabase).
+Le vendeur choisit ensuite **son prix** dans la fourchette, et l'outil affiche la **référence Onlinefact** du produit à scanner ou à taper à la caisse. Il peut **mémoriser ce prix**, pour une marque ou pour l'article sans marque : la prochaine fois, dans ce magasin, la même marque et le même article afficheront directement ce prix et sa référence. Les prix mémorisés sont partagés par tous les appareils du magasin, grâce à une petite base de données gratuite (Supabase). L'outil ne s'ouvre qu'avec un code magasin.
 
 Il n'y a rien à installer : c'est un site statique, hébergé gratuitement sur **GitHub Pages**.
 
@@ -44,9 +44,18 @@ La clé *anon* peut être visible publiquement : elle donne seulement accès aux
 
 **Bon à savoir** : sur le plan gratuit, Supabase met le projet en pause après 7 jours sans aucune utilisation. Cela ne devrait pas arriver si les magasins utilisent l'outil. S'il est en pause, un clic sur *Restore* dans Supabase suffit, et rien n'est perdu.
 
-## Mettre à jour les marques ou les prix
+## Données protégées (marques, listes de prix)
 
-Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/`. Elles sont générées depuis les fichiers Excel et Word habituels. Ne modifiez pas ces fichiers à la main.
+Les marques, les listes de prix et les références Onlinefact ne sont **plus sur GitHub** : elles sont dans la base Supabase, et l'outil ne les reçoit qu'après la saisie d'un **code magasin** valide. Le dépôt GitHub ne contient que le code de l'application et les photos d'exemple.
+
+- **Code administrateur** : à définir une fois dans Supabase (SQL Editor), au moins 10 caractères, à garder secret :
+  ```sql
+  select set_admin_code('un-long-mot-de-passe');
+  ```
+- **Page d'administration** : `https://<votre-compte>.github.io/merkentool/admin.html`. Elle permet de charger `brands.json` et `prices.json` dans la base et affiche la date de la dernière mise à jour.
+- **Anti-devinette** : après 10 codes erronés en 15 minutes, le magasin (ou l'admin) est bloqué 15 minutes. Pour débloquer plus tôt : `select unblock_shop('Shop Brugge');`
+
+## Mettre à jour les marques ou les prix
 
 1. Installez Python 3, une seule fois, puis :
    ```
@@ -56,7 +65,8 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
    ```
    python tools/build_data.py --brands "chemin/vers/Merkentool.xlsx" --prices "chemin/vers/dossier_word" --onlinefact "chemin/vers/Import_produits.csv"
    ```
-3. Sur GitHub, téléversez les nouveaux dossiers `data` et `photos`, qui remplacent les anciens. Le site se met à jour en une à deux minutes.
+3. Ouvrez **admin.html**, entrez le code administrateur et envoyez les nouveaux `data/brands.json` et `data/prices.json`. **Ne mettez pas le dossier `data` sur GitHub.**
+4. Si des photos ont changé, téléversez le dossier `photos` sur GitHub.
 
 **Formats attendus**
 
@@ -86,11 +96,8 @@ Les données se trouvent dans `data/brands.json`, `data/prices.json` et `photos/
 ```
 index.html, app.js, style.css   l'application
 config.js                        connexion à Supabase (vide = mode test)
-data/shops.json                  liste des magasins (utilisée en mode test)
 supabase/setup.sql               script de la base de données
-data/brands.json                 marques + étoiles
-data/prices.json                 catégories, sections, articles, prix, photos
-data/report.txt                  rapport de la dernière génération
+admin.html                       page d'administration (chargement des données)
 photos/                          photos d'exemple (réduites)
 assets/oxfam-logo.png
 tools/build_data.py              générateur des données

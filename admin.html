@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Merkentool – Administration</title>
+  <link rel="icon" href="assets/oxfam-logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-grid { display: grid; gap: 12px; }
+    .status { font-size: .95rem; }
+    .status td { padding: 4px 10px 4px 0; }
+    .file-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .file-row input[type=file] { flex: 1 1 220px; }
+    .log { font: .85rem ui-monospace, Menlo, monospace; white-space: pre-wrap; background: #f6f8f3; border-radius: 8px; padding: 10px; min-height: 2em; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <img src="assets/oxfam-logo.png" alt="Oxfam" class="logo">
+    <h1>Merkentool – Administration</h1>
+    <a href="./" class="btn-light" style="text-decoration:none;color:inherit">Ouvrir l'outil</a>
+  </header>
+
+  <main>
+    <section class="card" id="login-card">
+      <h2><span class="step">1</span> Code administrateur</h2>
+      <div class="login-row">
+        <input id="admin-code" type="password" autocomplete="off" placeholder="Code administrateur">
+        <button type="button" id="admin-go" class="btn-primary">Se connecter</button>
+      </div>
+      <p id="login-msg" class="msg warn" hidden></p>
+    </section>
+
+    <section class="card" id="status-card" hidden>
+      <h2><span class="step">2</span> Données actuellement dans la base</h2>
+      <table class="status" id="status"></table>
+    </section>
+
+    <section class="card" id="upload-card" hidden>
+      <h2><span class="step">3</span> Charger des données</h2>
+      <div class="admin-grid">
+        <div>
+          <div class="label">Option rapide : copier les fichiers encore présents sur le site (dossier <code>data</code> sur GitHub)</div>
+          <p><button type="button" id="copy-site" class="btn-primary">Copier les données du site dans la base</button></p>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%">
+        <div>
+          <div class="label">Ou choisir les fichiers produits par <code>tools/build_data.py</code></div>
+          <div class="file-row" style="margin-top:8px">
+            <span style="min-width:110px">brands.json</span><input type="file" id="f-brands" accept=".json,application/json">
+          </div>
+          <div class="file-row" style="margin-top:8px">
+            <span style="min-width:110px">prices.json</span><input type="file" id="f-prices" accept=".json,application/json">
+          </div>
+          <p><button type="button" id="upload-files" class="btn-primary">Envoyer les fichiers choisis</button></p>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    const CFG = window.MERKENTOOL_CONFIG || {};
+    const $ = (id) => document.getElementById(id);
+    let code = "";
+
+    async function rpc(fn, args) {
+      const r = await fetch(CFG.supabaseUrl.replace(/\/$/, "") + "/rest/v1/rpc/" + fn, {
+        method: "POST",
+        headers: Object.assign({ apikey: CFG.supabaseKey, "Content-Type": "application/json" },
+          /^eyJ/.test(CFG.supabaseKey) ? { Authorization: "Bearer " + CFG.supabaseKey } : {}),
+        body: JSON.stringify(args || {}),
+      });
+      const txt = await r.text();
+      if (!r.ok) {
+        let msg = txt;
+        try { msg = JSON.parse(txt).message || txt; } catch (e) { /* ignore */ }
+        throw new Error(msg);
+      }
+      return txt ? JSON.parse(txt) : null;
+    }
+    const log = (m) => { $("log").textContent += m + "\n"; };
+    const fmtDate = (d) => new Date(d).toLocaleString("fr-BE");
+
+    function check(key, data) {
+      if (key === "brands") {
+        if (!Array.isArray(data) || !data.length || !Array.isArray(data[0])) throw new Error("brands.json n'a pas le bon format");
+        return `${data.length} marques`;
+      }
+      if (!data || !Array.isArray(data.categories) || !data.categories.length) throw new Error("prices.json n'a pas le bon format");
+      const n = data.categories.reduce((a, c) => a + c.sections.reduce((x, s) => x + s.items.length, 0), 0);
+      const refs = data.categories.reduce((a, c) => a + c.sections.reduce((x, s) => x + s.items.reduce((y, it) => y + (it.r || []).flat().length, 0), 0), 0);
+      return `${data.categories.length} catégories, ${n} articles, ${refs} références Onlinefact`;
+    }
+
+    async function upload(key, data) {
+      const what = check(key, data);
+      log(`→ envoi ${key} (${what})…`);
+      const ok = await rpc("upload_app_data", { p_admin: code, p_key: key, p_data: data });
+      if (!ok) throw new Error("code administrateur refusé");
+      log(`✓ ${key} enregistré`);
+    }
+
+    async function status() {
+      const s = await rpc("admin_status", { p_admin: code });
+      if (!s) throw new Error("code administrateur refusé");
+      const row = (k, label, unit) => s[k]
+        ? `<tr><td><b>${label}</b></td><td>${s[k].count} ${unit}</td><td>mis à jour le ${fmtDate(s[k].updated_at)}</td></tr>`
+        : `<tr><td><b>${label}</b></td><td colspan="2" style="color:#8a5a00">pas encore chargé</td></tr>`;
+      $("status").innerHTML = row("brands", "Marques", "marques") + row("prices", "Listes de prix", "catégories");
+    }
+
+    async function login() {
+      code = $("admin-code").value;
+      $("login-msg").hidden = true;
+      if (!CFG.supabaseUrl || !CFG.supabaseKey) { $("login-msg").textContent = "config.js n'est pas rempli."; $("login-msg").hidden = false; return; }
+      try {
+        const ok = await rpc("admin_login", { p_admin: code });
+        if (!ok) { $("login-msg").textContent = "Code incorrect."; $("login-msg").hidden = false; return; }
+        $("login-card").hidden = true;
+        $("status-card").hidden = false;
+        $("upload-card").hidden = false;
+        await status();
+      } catch (e) {
+        $("login-msg").textContent = /too many/.test(e.message) ? "Trop d'essais. Réessayez dans 15 minutes." : "Erreur : " + e.message;
+        $("login-msg").hidden = false;
+      }
+    }
+
+    async function run(fn) {
+      document.querySelectorAll("#upload-card button").forEach((b) => (b.disabled = true));
+      try { await fn(); await status(); log("Terminé."); }
+      catch (e) { log("✗ " + e.message); }
+      finally { document.querySelectorAll("#upload-card button").forEach((b) => (b.disabled = false)); }
+    }
+
+    $("admin-go").addEventListener("click", login);
+    $("admin-code").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+    $("copy-site").addEventListener("click", () => run(async () => {
+      for (const key of ["brands", "prices"]) {
+        const r = await fetch(`data/${key}.json`, { cache: "no-store" });
+        if (!r.ok) throw new Error(`data/${key}.json introuvable sur le site (déjà supprimé ?) – utilisez l'option fichiers`);
+        await upload(key, await r.json());
+      }
+    }));
+
+    $("upload-files").addEventListener("click", () => run(async () => {
+      const files = { brands: $("f-brands").files[0], prices: $("f-prices").files[0] };
+      if (!files.brands && !files.prices) throw new Error("aucun fichier choisi");
+      for (const key of ["brands", "prices"]) {
+        if (!files[key]) continue;
+        let data;
+        try { data = JSON.parse(await files[key].text()); } catch (e) { throw new Error(`${files[key].name} n'est pas un fichier JSON valide`); }
+        await upload(key, data);
+      }
+    }));
+  })();
+  </script>
+</body>
+</html>

@@ -179,3 +179,6 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px
 .range-block { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .range-block .price-main { font-size: 1.6rem; padding: 10px; margin-top: 8px; }
 .range-block .price-main.empty { font-size: .95rem; }
+
+/* steps 2-4 hidden until a shop is logged in (shared database) */
+.card.is-locked { display: none; }

@@ -28,6 +28,9 @@
       save: (p, b) => `Onthoud ${p} voor ${b}`, thisItem: "dit artikel", saved: "Onthouden ✓", forget: "Vergeten",
       prefOther: "eerder gekozen, andere sterren",
       localNote: "prijzen enkel op dit toestel onthouden (testmodus)",
+      tooMany: "Te veel foute codes. Probeer opnieuw over 15 minuten.",
+      locked: "Kies je winkel en geef de winkelcode in om het hulpmiddel te gebruiken.",
+      noData: "Er zijn nog geen merken en prijzen geladen in de databank.",
     },
     fr: {
       title: "Outil de Marques", shop: "Magasin", brand: "Marque", optional: "(facultatif)", stars: "Étoiles", item: "Article",
@@ -47,6 +50,9 @@
       save: (p, b) => `Mémoriser ${p} pour ${b}`, thisItem: "cet article", saved: "Mémorisé ✓", forget: "Oublier",
       prefOther: "choisi précédemment, autres étoiles",
       localNote: "prix mémorisés sur cet appareil uniquement (mode test)",
+      tooMany: "Trop de codes erronés. Réessayez dans 15 minutes.",
+      locked: "Choisissez votre magasin et entrez le code du magasin pour utiliser l'outil.",
+      noData: "Les marques et les prix n'ont pas encore été chargés dans la base de données.",
     },
   };
 
@@ -99,6 +105,7 @@
         try { msg = (await r.json()).message || ""; } catch (e) { /* ignore */ }
         const err = new Error(msg || "HTTP " + r.status);
         err.badCode = /bad shop code/.test(msg);
+        err.tooMany = /too many attempts/.test(msg);
         throw err;
       }
       const txt = await r.text();
@@ -119,12 +126,12 @@
     saveLocal() { store.set(this.localKey(), JSON.stringify(Object.fromEntries(this.map))); },
     get(brand, item) { return this.map.get(this.key(brand, item)); },
     async set(brand, item, label, stars, price, ref) {
-      if (REMOTE) await this.rpc("set_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item, p_label: label, p_stars: stars, p_price: price, p_ref: ref });
+      if (REMOTE && !(await this.rpc("set_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item, p_label: label, p_stars: stars, p_price: price, p_ref: ref }))) throw Object.assign(new Error("bad shop code"), { badCode: true });
       this.map.set(this.key(brand, item), { price, ref, stars });
       if (!REMOTE) this.saveLocal();
     },
     async del(brand, item) {
-      if (REMOTE) await this.rpc("del_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item });
+      if (REMOTE && !(await this.rpc("del_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item }))) throw Object.assign(new Error("bad shop code"), { badCode: true });
       this.map.delete(this.key(brand, item));
       if (!REMOTE) this.saveLocal();
     },
@@ -226,7 +233,7 @@
         if (!ok) { shopMsg(t.badCode); return; }
         P.shop = { id: +id, name, code };
       } catch (e) {
-        console.error(e); shopMsg(t.netError); return;
+        console.error(e); shopMsg(e.tooMany ? t.tooMany : t.netError); return;
       } finally {
         $("shop-ok").disabled = false;
       }
@@ -235,15 +242,58 @@
     store.set("merkentool-last-shop", String(id));
     shopMsg("");
     $("shop-code").value = "";
+    if (REMOTE && !(await loadRemoteData())) return;
     try { await P.load(); } catch (e) { console.error(e); shopMsg(t.netError); }
     showShop();
     renderResult();
+  }
+
+  /* ---------- data ---------- */
+  function applyData(b, p) {
+    S.brands = (b || []).map(([name, stars, note]) => {
+      const n = norm(name);
+      return { name, stars, note, n, ns: n.replace(/\s+/g, "") };
+    });
+    S.cats = (p && p.categories) || [];
+    S.built = (p && p.built) || "";
+    for (const c of S.cats) for (const s of c.sections) for (const it of s.items) { it.nn = norm(it.nl); it.nf = norm(it.fr); }
+    S.cat = Math.min(S.cat, Math.max(0, S.cats.length - 1));
+    renderCats();
+    updateInfo();
+  }
+
+  // shared database: brands and prices are only sent after a valid shop code
+  async function loadRemoteData() {
+    const t = T[S.lang];
+    try {
+      const d = await P.rpc("get_app_data", { p_shop: P.shop.id, p_code: P.shop.code });
+      if (!d) { logout(); shopMsg(t.badCode); return false; }
+      if (!d.brands || !d.prices) { shopMsg(t.noData); }
+      applyData(d.brands, d.prices);
+      setLocked(false);
+      return true;
+    } catch (e) {
+      console.error(e);
+      shopMsg(e.tooMany ? t.tooMany : t.netError);
+      return false;
+    }
+  }
+
+  // steps 2-4 stay hidden until a shop has logged in (shared database only)
+  function setLocked(on) {
+    document.querySelectorAll("main > .card:not(#shop-card)").forEach((c) => c.classList.toggle("is-locked", on));
+    $("locked-msg").hidden = !on;
   }
 
   function logout() {
     P.shop = null;
     P.map.clear();
     store.set("merkentool-shop", "");
+    if (REMOTE) {
+      clearItem(); clearBrand();
+      applyData([], { categories: [] });
+      setLocked(true);
+    }
     showShop();
     S.sel = null;
     renderResult();
@@ -467,6 +517,7 @@
   function handleRemoteError(e) {
     console.error(e);
     if (e.badCode) { logout(); shopMsg(T[S.lang].badCode); return; }
+    if (e.tooMany) { logout(); shopMsg(T[S.lang].tooMany); return; }
     $("save-msg").textContent = T[S.lang].netError;
     $("save-msg").className = "msg warn";
   }
@@ -490,7 +541,7 @@
   }
 
   function updateInfo() {
-    if (!S.cats.length) return;
+    if (!S.cats.length) { $("data-info").textContent = ""; return; }
     const n = S.cats.reduce((a, c) => a + c.sections.reduce((x, s) => x + s.items.length, 0), 0);
     const fmt = (v) => v.toLocaleString(S.lang === "nl" ? "nl-BE" : "fr-BE");
     $("data-info").textContent = T[S.lang].info(fmt(S.brands.length), fmt(n)) + (S.built ? ` · ${S.built}` : "") +
@@ -503,21 +554,22 @@
     setLang(saved || ((navigator.language || "").toLowerCase().startsWith("fr") ? "fr" : "nl"));
 
     try {
-      const [b, p, shops] = await Promise.all([
-        fetch("data/brands.json").then((r) => { if (!r.ok) throw r; return r.json(); }),
-        fetch("data/prices.json").then((r) => { if (!r.ok) throw r; return r.json(); }),
-        REMOTE ? P.rpc("list_shops").catch((e) => { console.error(e); return null; })
-               : fetch("data/shops.json").then((r) => (r.ok ? r.json() : [])).then((l) => l.map((n) => ({ id: n, name: n }))).catch(() => []),
-      ]);
-      S.brands = b.map(([name, stars, note]) => {
-        const n = norm(name);
-        return { name, stars, note, n, ns: n.replace(/\s+/g, "") };
-      });
-      S.cats = p.categories;
-      S.built = p.built || "";
-      for (const c of S.cats) for (const s of c.sections) for (const it of s.items) { it.nn = norm(it.nl); it.nf = norm(it.fr); }
-      if (shops === null) shopMsg(T[S.lang].netError);
-      S.shops = shops || [];
+      if (REMOTE) {
+        // shared database: only the shop names are public; data comes after login
+        setLocked(true);
+        const shops = await P.rpc("list_shops").catch((e) => { console.error(e); return null; });
+        if (shops === null) shopMsg(T[S.lang].netError);
+        S.shops = shops || [];
+      } else {
+        // test mode: local files
+        const [b, p, shops] = await Promise.all([
+          fetch("data/brands.json").then((r) => { if (!r.ok) throw r; return r.json(); }),
+          fetch("data/prices.json").then((r) => { if (!r.ok) throw r; return r.json(); }),
+          fetch("data/shops.json").then((r) => (r.ok ? r.json() : [])).then((l) => l.map((n) => ({ id: n, name: n }))).catch(() => []),
+        ]);
+        applyData(b, p);
+        S.shops = shops || [];
+      }
     } catch (e) {
       $("data-info").textContent = T[S.lang].loadError;
       console.error(e);
@@ -586,6 +638,7 @@
     try { P.shop = JSON.parse(store.get("merkentool-shop") || "null"); } catch (e) { P.shop = null; }
     if (P.shop && !S.shops.some((s) => String(s.id) === String(P.shop.id) && s.name === P.shop.name)) P.shop = null;
     if (P.shop && REMOTE && !P.shop.code) P.shop = null;
+    if (P.shop && REMOTE && !(await loadRemoteData())) { if (P.shop && !S.cats.length) P.shop = null; }
     if (P.shop) {
       try { await P.load(); }
       catch (e) { console.error(e); if (e.badCode) { logout(); } else shopMsg(T[S.lang].netError); }
