@@ -89,7 +89,9 @@
     async rpc(fn, args) {
       const r = await fetch(CFG.supabaseUrl.replace(/\/$/, "") + "/rest/v1/rpc/" + fn, {
         method: "POST",
-        headers: { apikey: CFG.supabaseKey, Authorization: "Bearer " + CFG.supabaseKey, "Content-Type": "application/json" },
+        // legacy "anon" keys are JWTs (eyJ…) and also go in Authorization; new "sb_publishable_…" keys only in apikey
+        headers: Object.assign({ apikey: CFG.supabaseKey, "Content-Type": "application/json" },
+          /^eyJ/.test(CFG.supabaseKey) ? { Authorization: "Bearer " + CFG.supabaseKey } : {}),
         body: JSON.stringify(args || {}),
       });
       if (!r.ok) {
