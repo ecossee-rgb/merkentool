@@ -31,6 +31,9 @@
       tooMany: "Te veel foute codes. Probeer opnieuw over 15 minuten.",
       locked: "Kies je winkel en geef de winkelcode in om het hulpmiddel te gebruiken.",
       noData: "Er zijn nog geen merken en prijzen geladen in de databank.",
+      stale: (p, r) => `De onthouden prijs voor deze keuze (${p} · ref. ${r}) bestaat niet meer in de huidige prijslijst. Kies hieronder een nieuwe prijs en onthoud die.`,
+      forgetOld: "Oude prijs vergeten",
+      choiceRefused: "Deze prijs werd niet onthouden: hij komt niet overeen met de huidige prijslijst. Herlaad de pagina en probeer opnieuw.",
     },
     fr: {
       title: "Outil de Marques", shop: "Magasin", brand: "Marque", optional: "(facultatif)", stars: "Étoiles", item: "Article",
@@ -53,6 +56,9 @@
       tooMany: "Trop de codes erronés. Réessayez dans 15 minutes.",
       locked: "Choisissez votre magasin et entrez le code du magasin pour utiliser l'outil.",
       noData: "Les marques et les prix n'ont pas encore été chargés dans la base de données.",
+      stale: (p, r) => `Le prix mémorisé pour ce choix (${p} · réf. ${r}) n'existe plus dans la liste de prix actuelle. Choisissez un nouveau prix ci-dessous et mémorisez-le.`,
+      forgetOld: "Oublier l'ancien prix",
+      choiceRefused: "Ce prix n'a pas été mémorisé : il ne correspond pas à la liste de prix actuelle. Rechargez la page et réessayez.",
     },
   };
 
@@ -64,19 +70,34 @@
   /* ---------- helpers ---------- */
   const normChar = (c) => c.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const norm = (s) => Array.from(String(s)).map(normChar).join("");
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const starStr = (n) => (n ? "*".repeat(n) : "–");
+  const PHOTO_RX = /^[0-9a-f]{12}\.jpg$/;
 
+  // Build elements with text only: imported values never go through innerHTML.
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (k === "class") e.className = v;
+      else if (k === "text") e.textContent = v;
+      else e.setAttribute(k, String(v));
+    }
+    for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k); // strings become text nodes
+    return e;
+  }
+  const clear = (node) => { node.replaceChildren(); return node; };
+
+  // label with the matched part in bold, as text nodes
   function highlight(label, q) {
-    if (!q) return esc(label);
+    label = String(label);
+    if (!q) return [label];
     const chars = Array.from(label);
     const n = chars.map(normChar);
-    if (n.some((x) => x.length !== 1)) return esc(label);
+    if (n.some((x) => x.length !== 1)) return [label];
     const i = n.join("").indexOf(q);
-    if (i < 0) return esc(label);
-    return esc(chars.slice(0, i).join("")) + "<b>" + esc(chars.slice(i, i + q.length).join("")) + "</b>" + esc(chars.slice(i + q.length).join(""));
+    if (i < 0) return [label];
+    return [chars.slice(0, i).join(""), el("b", { text: chars.slice(i, i + q.length).join("") }), chars.slice(i + q.length).join("")];
   }
-  const fmtNum = (v) => v.toLocaleString("fr-BE", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const fmtNum = (v) => { v = Number(v); return v.toLocaleString("fr-BE", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
   function fmtRange(r) {
     if (!r) return "–";
     return r[0] === r[1] ? `${fmtNum(r[0])} €` : `${fmtNum(r[0])} – ${fmtNum(r[1])} €`;
@@ -106,6 +127,7 @@
         const err = new Error(msg || "HTTP " + r.status);
         err.badCode = /bad shop code/.test(msg);
         err.tooMany = /too many attempts/.test(msg);
+        err.invalidChoice = /invalid choice/.test(msg);
         throw err;
       }
       const txt = await r.text();
@@ -121,13 +143,13 @@
         return;
       }
       const rows = await this.rpc("get_prefs", { p_shop: this.shop.id, p_code: this.shop.code });
-      for (const r of rows) this.map.set(this.key(r.brand, r.item), { price: +r.price, ref: r.ref, stars: r.stars });
+      for (const r of rows) this.map.set(this.key(r.brand, r.item), { price: +r.price, ref: String(r.ref), stars: r.stars, valid: r.valid !== false });
     },
     saveLocal() { store.set(this.localKey(), JSON.stringify(Object.fromEntries(this.map))); },
     get(brand, item) { return this.map.get(this.key(brand, item)); },
     async set(brand, item, label, stars, price, ref) {
       if (REMOTE && !(await this.rpc("set_pref", { p_shop: this.shop.id, p_code: this.shop.code, p_brand: brand, p_item: item, p_label: label, p_stars: stars, p_price: price, p_ref: ref }))) throw Object.assign(new Error("bad shop code"), { badCode: true });
-      this.map.set(this.key(brand, item), { price, ref, stars });
+      this.map.set(this.key(brand, item), { price, ref, stars, valid: true });
       if (!REMOTE) this.saveLocal();
     },
     async del(brand, item) {
@@ -147,11 +169,10 @@
     function render() {
       rows = getRows(input.value);
       active = -1;
-      if (!rows.length) { list.hidden = true; list.innerHTML = ""; return; }
-      list.innerHTML = rows.map((r, i) =>
-        r.group ? `<li class="group">${esc(r.group)}</li>`
-                : `<li data-i="${i}"><span>${r.html}</span>${r.right ? `<span class="s">${esc(r.right)}</span>` : ""}</li>`
-      ).join("");
+      if (!rows.length) { list.hidden = true; clear(list); return; }
+      list.replaceChildren(...rows.map((r, i) =>
+        r.group ? el("li", { class: "group", text: r.group })
+                : el("li", { "data-i": i }, el("span", null, r.label), r.right ? el("span", { class: "s", text: r.right }) : null)));
       list.hidden = false;
       list.scrollTop = 0;
     }
@@ -196,8 +217,7 @@
   function renderShopSelect() {
     const t = T[S.lang], sel = $("shop-select");
     const cur = sel.value;
-    sel.innerHTML = `<option value="">${esc(t.chooseShop)}</option>` +
-      S.shops.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+    sel.replaceChildren(new Option(t.chooseShop, ""), ...S.shops.map((s) => new Option(String(s.name), String(s.id))));
     sel.value = cur || store.get("merkentool-last-shop") || "";
     if (!S.shops.some((s) => String(s.id) === sel.value)) sel.value = "";
   }
@@ -303,7 +323,7 @@
 
   /* ---------- 2. categories & items ---------- */
   function renderCats() {
-    $("cats").innerHTML = S.cats.map((c, i) => `<button type="button" data-cat="${i}" class="${i === S.cat ? "on" : ""}">${esc(c[S.lang])}</button>`).join("");
+    $("cats").replaceChildren(...S.cats.map((c, i) => el("button", { type: "button", "data-cat": i, class: i === S.cat ? "on" : "", text: c[S.lang] })));
   }
 
   function itemRows(text) {
@@ -317,7 +337,7 @@
       rows.push({ group: sec[S.lang] });
       for (const it of its) {
         const own = norm(it[S.lang]).includes(q);
-        rows.push({ html: highlight(it[S.lang], own ? q : "") + (!own && q ? ` <small>(${highlight(it[other], q)})</small>` : ""), value: it });
+        rows.push({ label: [...highlight(it[S.lang], own ? q : ""), !own && q ? [" ", el("small", null, "(", highlight(it[other], q), ")")] : null], value: it });
       }
     }
     if (!rows.length) rows.push({ group: T[S.lang].noItem });
@@ -357,7 +377,7 @@
     hits.sort((a, b) => a[0] - b[0] || a[1].n.localeCompare(b[1].n));
     S.brandNoMatch = hits.length === 0;
     showBrandMsg();
-    return hits.slice(0, 80).map(([, b]) => ({ html: highlight(b.name, q), right: starStr(b.stars), value: b }));
+    return hits.slice(0, 80).map(([, b]) => ({ label: highlight(b.name, q), right: starStr(b.stars), value: b }));
   }
 
   function pickBrand(b) {
@@ -396,17 +416,40 @@
   }
 
   /* ---------- 4. price ---------- */
+  // star level where [price, ref] exists for this item in the loaded catalogue (0 = not found)
+  function levelOf(it, price, ref) {
+    const r = it.r || [];
+    for (let i = 0; i < r.length; i++) {
+      for (const e of r[i] || []) if (e[1] === ref && Number(e[0]) === Number(price)) return i + 1;
+    }
+    return 0;
+  }
+
+  // a saved price is "stale" when the server says so, or when it is not in the current catalogue
+  function decorate(p, brand, it) {
+    const lvl = levelOf(it, p.price, p.ref);
+    return { ...p, brand, stale: p.valid === false || !lvl, stars: lvl || p.stars };
+  }
+
   function currentPref(it, lv) {
     if (!P.shop) return null;
     const key = itemKey(it);
     if (S.brand) {
       const p = P.get(S.brand.name, key);
-      if (p) return { ...p, brand: S.brand.name };
+      if (p) return decorate(p, S.brand.name, it);
     }
-    // fall back to the price saved for the item without brand (same star level only, when a brand is chosen)
     const p = P.get(NO_BRAND, key);
-    if (p && (!S.brand || !lv || p.stars === lv)) return { ...p, brand: NO_BRAND };
-    return null;
+    if (!p) return null;
+    const d = decorate(p, NO_BRAND, it);
+    if (!S.brand) return d;
+    // fall back to the price saved without brand: only if still valid and for the same star level
+    return !d.stale && (!lv || d.stars === lv) ? d : null;
+  }
+
+  function chipButton(price, ref, level, isPref) {
+    const b = el("button", { type: "button", class: (S.sel && S.sel.ref === ref ? "on " : "") + (isPref ? "pref" : "") }, fmtNum(price) + " €");
+    b.addEventListener("click", () => { S.sel = { price: Number(price), ref: String(ref), lv: level }; renderResult(); });
+    return b;
   }
 
   function renderResult() {
@@ -416,40 +459,50 @@
     const t = T[S.lang], cat = S.cats[S.cat];
     const other = S.lang === "nl" ? "fr" : "nl";
     box.hidden = false;
-    $("item-name").innerHTML = `${esc(it[S.lang])}<small>${esc(it[other])} · ${esc(cat[S.lang])}${S.brand ? " · " + esc(S.brand.name) : ""}</small>`;
+    $("item-name").replaceChildren(String(it[S.lang]),
+      el("small", null, `${it[other]} · ${cat[S.lang]}${S.brand ? " · " + S.brand.name : ""}`));
 
     const lv = S.stars ? Math.min(S.stars, cat.levels) : 0;
     const pref = currentPref(it, lv);
-    if (!S.sel && pref) S.sel = { price: pref.price, ref: pref.ref, lv: pref.stars || lv };
-    $("price-title").textContent = pref ? t.yourPrice : t.choosePrice;
+    const good = pref && !pref.stale ? pref : null;
+    if (!S.sel && good) S.sel = { price: good.price, ref: good.ref, lv: good.stars || lv };
+    $("price-title").textContent = good ? t.yourPrice : t.choosePrice;
+
+    // saved price that no longer exists in the catalogue: kept in the database, but not offered
+    const stale = $("stale-box");
+    stale.hidden = !(pref && pref.stale);
+    if (pref && pref.stale) $("stale-text").textContent = t.stale(fmtRange([pref.price, pref.price]), pref.ref);
+    $("stale-forget").textContent = t.forgetOld;
 
     // price buttons: only the chosen star level, or every level when no stars are known
     const levels = lv ? [lv] : Array.from({ length: cat.levels }, (_, i) => i + 1);
-    let html = "";
+    const rows = [];
     let prefShown = false;
     for (const l of levels) {
       const opts = (it.r && it.r[l - 1]) || [];
       if (!opts.length) continue;
-      html += `<div class="chip-level">${levels.length > 1 ? `<span class="chip-stars lv${l}">${starStr(l)}</span>` : ""}<div class="chips">` +
-        opts.map(([p, ref]) => {
-          const isPref = pref && pref.ref === ref;
+      rows.push(el("div", { class: "chip-level" },
+        levels.length > 1 ? el("span", { class: "chip-stars lv" + l, text: starStr(l) }) : null,
+        el("div", { class: "chips" }, opts.map(([p, ref]) => {
+          const isPref = !!good && good.ref === ref;
           if (isPref) prefShown = true;
-          return `<button type="button" data-ref="${esc(ref)}" data-price="${p}" data-lv="${l}" class="${S.sel && S.sel.ref === ref ? "on" : ""} ${isPref ? "pref" : ""}">${esc(fmtNum(p))} €</button>`;
-        }).join("") + `</div></div>`;
+          return chipButton(p, ref, l, isPref);
+        }))));
     }
-    if (pref && !prefShown) {
-      html = `<div class="chip-level"><span class="chip-stars">${esc(t.prefOther)}</span><div class="chips"><button type="button" data-ref="${esc(pref.ref)}" data-price="${pref.price}" data-lv="${pref.stars || 0}" class="${S.sel && S.sel.ref === pref.ref ? "on" : ""} pref">${esc(fmtNum(pref.price))} €</button></div></div>` + html;
+    if (good && !prefShown) {
+      rows.unshift(el("div", { class: "chip-level" }, el("span", { class: "chip-stars", text: t.prefOther }),
+        el("div", { class: "chips" }, chipButton(good.price, good.ref, good.stars || 0, true))));
     }
-    $("price-chips").innerHTML = html;
+    $("price-chips").replaceChildren(...rows);
 
-    renderRef(pref);
+    renderRef(good);
 
     // range
     const main = $("price-main");
     main.className = "price-main";
     if (lv) {
       main.classList.add("lv" + lv);
-      main.innerHTML = `${esc(fmtRange(it.p[lv - 1]))}<small>${starStr(lv)}</small>`;
+      main.replaceChildren(fmtRange(it.p[lv - 1]), el("small", { text: starStr(lv) }));
     } else {
       main.classList.add("empty");
       main.textContent = t.chooseStarsHint;
@@ -457,15 +510,19 @@
     const note = $("price-note");
     note.hidden = !(S.stars > cat.levels);
     note.textContent = S.stars > cat.levels ? t.capped(starStr(cat.levels)) : "";
-    let head = "", body = "";
+    const head = el("tr"), body = el("tr");
     for (let i = 0; i < cat.levels; i++) {
-      const on = i + 1 === lv;
-      head += `<th>${starStr(i + 1)}</th>`;
-      body += `<td class="${on ? "on lv" + lv : ""}">${esc(fmtRange(it.p[i]))}</td>`;
+      head.append(el("th", { text: starStr(i + 1) }));
+      body.append(el("td", { class: i + 1 === lv ? "on lv" + lv : "", text: fmtRange(it.p[i]) }));
     }
-    $("price-table").innerHTML = `<tr>${head}</tr><tr>${body}</tr>`;
+    $("price-table").replaceChildren(head, body);
 
-    $("photos").innerHTML = (it.img || []).map((f) => `<img src="photos/${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`).join("");
+    // photos: only plain file names from the photos folder
+    $("photos").replaceChildren(...(it.img || []).filter((f) => PHOTO_RX.test(f)).map((f) => {
+      const img = el("img", { src: "photos/" + f, alt: "", loading: "lazy" });
+      img.addEventListener("error", () => img.remove());
+      return img;
+    }));
   }
 
   function renderRef(pref) {
@@ -504,11 +561,11 @@
     }
   }
 
-  async function delPref() {
+  async function delPref(brand) {
     const it = S.item;
     if (!it || !P.shop) return;
     try {
-      await P.del(brandKey(), itemKey(it));
+      await P.del(typeof brand === "string" ? brand : brandKey(), itemKey(it));
       S.sel = null;
       renderResult();
     } catch (e) { handleRemoteError(e); }
@@ -518,7 +575,7 @@
     console.error(e);
     if (e.badCode) { logout(); shopMsg(T[S.lang].badCode); return; }
     if (e.tooMany) { logout(); shopMsg(T[S.lang].tooMany); return; }
-    $("save-msg").textContent = T[S.lang].netError;
+    $("save-msg").textContent = e.invalidChoice ? T[S.lang].choiceRefused : T[S.lang].netError;
     $("save-msg").className = "msg warn";
   }
 
@@ -603,18 +660,16 @@
     });
     document.querySelectorAll(".lang button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
 
-    $("price-chips").addEventListener("click", (e) => {
-      const b = e.target.closest("button");
-      if (!b) return;
-      S.sel = { price: +b.dataset.price, ref: b.dataset.ref, lv: +b.dataset.lv || 0 };
-      renderResult();
-    });
     $("ref-copy").addEventListener("click", async () => {
       try { await navigator.clipboard.writeText($("ref-value").textContent); $("ref-copy").textContent = T[S.lang].copied; }
       catch (e) { /* clipboard not available */ }
     });
     $("save-pref").addEventListener("click", savePref);
-    $("del-pref").addEventListener("click", delPref);
+    $("del-pref").addEventListener("click", () => delPref());
+    $("stale-forget").addEventListener("click", () => {
+      const pref = S.item && currentPref(S.item, 0);
+      if (pref && pref.stale) delPref(pref.brand);
+    });
 
     $("shop-select").addEventListener("change", () => { shopMsg(""); if (!REMOTE) chooseShop(); else $("shop-code").focus(); });
     $("shop-ok").addEventListener("click", chooseShop);

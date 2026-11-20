@@ -53,7 +53,10 @@ Les marques, les listes de prix et les références Onlinefact ne sont **plus su
   select set_admin_code('un-long-mot-de-passe');
   ```
 - **Page d'administration** : `https://<votre-compte>.github.io/merkentool/admin.html`. Elle permet de charger `brands.json` et `prices.json` dans la base et affiche la date de la dernière mise à jour.
-- **Anti-devinette** : après 10 codes erronés en 15 minutes, le magasin (ou l'admin) est bloqué 15 minutes. Pour débloquer plus tôt : `select unblock_shop('Shop Brugge');`
+- **Anti-devinette** : après 10 codes erronés en 15 minutes, le magasin (ou l'admin) est bloqué 15 minutes. Les essais simultanés sont comptés un par un. Pour débloquer plus tôt : `select unblock_shop('Shop Brugge');`
+- **Prix mémorisés vérifiés** : en mémorisant un prix, le serveur vérifie que le couple prix + référence Onlinefact existe bien pour cet article dans la liste de prix actuelle, et que la marque existe. Les anciens choix ne sont jamais effacés : s'ils n'existent plus dans le catalogue, l'outil l'indique au magasin, et la colonne **statut** de `pref_report` affiche « plus dans le catalogue ».
+- **Chargements vérifiés** : chaque marque, prix, référence et nom de photo est contrôlé avant d'être accepté. Si une seule entrée est refusée, rien n'est remplacé et la page admin indique laquelle. Pour contrôler les données déjà en base : `select check_app_data();`
+- **Retour arrière de la base** : `supabase/rollback.sql` remet les fonctions de la base dans leur état d'avant la mise à jour de sécurité (version 0cfe1a5), sans toucher aux magasins, aux codes, aux prix mémorisés ni aux données. Remettre les anciennes pages sur GitHub ne suffit pas : il faut aussi exécuter ce script.
 
 ## Mettre à jour les marques ou les prix
 
@@ -97,7 +100,8 @@ Les marques, les listes de prix et les références Onlinefact ne sont **plus su
 index.html, app.js, style.css   l'application
 config.js                        connexion à Supabase (vide = mode test)
 supabase/setup.sql               script de la base de données
-admin.html                       page d'administration (chargement des données)
+supabase/rollback.sql            retour arrière de la mise à jour de sécurité
+admin.html, admin.js             page d'administration (chargement des données)
 photos/                          photos d'exemple (réduites)
 assets/oxfam-logo.png
 tools/build_data.py              générateur des données

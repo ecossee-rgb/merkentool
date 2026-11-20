@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Oxfam Merkentool / Outil de Marques</title>
   <link rel="icon" href="assets/oxfam-logo.png">
   <link rel="stylesheet" href="style.css">
@@ -69,6 +70,11 @@
     <section id="result" class="card result" hidden>
       <h2><span class="step">4</span> <span id="price-title" data-i18n="choosePrice">Kies je prijs</span></h2>
       <div id="item-name" class="item-name"></div>
+
+      <div id="stale-box" class="stale-box" hidden>
+        <p id="stale-text"></p>
+        <button type="button" id="stale-forget" class="btn-link"></button>
+      </div>
 
       <div id="price-chips" class="chip-levels"></div>
 

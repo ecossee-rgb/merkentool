@@ -182,3 +182,21 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px
 
 /* steps 2-4 hidden until a shop is logged in (shared database) */
 .card.is-locked { display: none; }
+
+/* ---------- admin page ---------- */
+.admin-grid { display: grid; gap: 12px; }
+.status { font-size: .95rem; }
+.status td { padding: 4px 10px 4px 0; }
+.file-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.file-row input[type=file] { flex: 1 1 220px; }
+.log { font: .85rem ui-monospace, Menlo, monospace; white-space: pre-wrap; background: #f6f8f3; border-radius: 8px; padding: 10px; min-height: 2em; }
+.admin-link { text-decoration: none; color: inherit; }
+.admin-hr { border: 0; border-top: 1px solid var(--line); width: 100%; }
+.file-row + .file-row, .admin-grid .label + .file-row { margin-top: 8px; }
+.file-label { min-width: 110px; }
+.strong { font-weight: 700; }
+.warn-text { color: #8a5a00; }
+
+/* saved price that no longer exists in the catalogue */
+.stale-box { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: #fdf3cc; border: 1px solid #e8cf7a; }
+.stale-box p { margin: 0 0 4px; color: #6b4e00; }
