@@ -31,6 +31,7 @@
       tooMany: "Te veel foute codes. Probeer opnieuw over 15 minuten.",
       locked: "Kies je winkel en geef de winkelcode in om het hulpmiddel te gebruiken.",
       noData: "Er zijn nog geen merken en prijzen geladen in de databank.",
+      category: "Categorie",
       stale: (p, r) => `De onthouden prijs voor deze keuze (${p} · ref. ${r}) bestaat niet meer in de huidige prijslijst. Kies hieronder een nieuwe prijs en onthoud die.`,
       forgetOld: "Oude prijs vergeten",
       choiceRefused: "Deze prijs werd niet onthouden: hij komt niet overeen met de huidige prijslijst. Herlaad de pagina en probeer opnieuw.",
@@ -56,6 +57,7 @@
       tooMany: "Trop de codes erronés. Réessayez dans 15 minutes.",
       locked: "Choisissez votre magasin et entrez le code du magasin pour utiliser l'outil.",
       noData: "Les marques et les prix n'ont pas encore été chargés dans la base de données.",
+      category: "Catégorie",
       stale: (p, r) => `Le prix mémorisé pour ce choix (${p} · réf. ${r}) n'existe plus dans la liste de prix actuelle. Choisissez un nouveau prix ci-dessous et mémorisez-le.`,
       forgetOld: "Oublier l'ancien prix",
       choiceRefused: "Ce prix n'a pas été mémorisé : il ne correspond pas à la liste de prix actuelle. Rechargez la page et réessayez.",
@@ -276,7 +278,7 @@
     });
     S.cats = (p && p.categories) || [];
     S.built = (p && p.built) || "";
-    for (const c of S.cats) for (const s of c.sections) for (const it of s.items) { it.nn = norm(it.nl); it.nf = norm(it.fr); }
+    for (const c of S.cats) for (const s of c.sections) for (const it of s.items) { it.nn = norm(it.nl); it.nf = norm(it.fr); it.sec = s; }
     S.cat = Math.min(S.cat, Math.max(0, S.cats.length - 1));
     renderCats();
     updateInfo();
@@ -344,15 +346,26 @@
     return rows;
   }
 
+  // category of the chosen article, as in the price lists (e.g. "Femmes › Manteaux et vestes")
+  function showItemCategory() {
+    const box = $("item-cat"), it = S.item, cat = S.cats[S.cat];
+    box.hidden = !(it && it.sec && cat);
+    if (box.hidden) return;
+    box.replaceChildren(el("span", { class: "label", text: T[S.lang].category + " : " }),
+      el("strong", { text: `${cat[S.lang]} › ${it.sec[S.lang]}` }));
+  }
+
   function pickItem(it) {
     S.item = it; S.sel = null;
     $("item-input").value = it[S.lang];
     $("item-input").blur();
+    showItemCategory();
     renderResult();
   }
   function clearItem() {
     S.item = null; S.sel = null;
     $("item-input").value = "";
+    showItemCategory();
     renderResult();
   }
 
@@ -460,7 +473,7 @@
     const other = S.lang === "nl" ? "fr" : "nl";
     box.hidden = false;
     $("item-name").replaceChildren(String(it[S.lang]),
-      el("small", null, `${it[other]} · ${cat[S.lang]}${S.brand ? " · " + S.brand.name : ""}`));
+      el("small", null, `${it[other]} · ${cat[S.lang]}${it.sec ? " › " + it.sec[S.lang] : ""}${S.brand ? " · " + S.brand.name : ""}`));
 
     const lv = S.stars ? Math.min(S.stars, cat.levels) : 0;
     const pref = currentPref(it, lv);
@@ -592,6 +605,7 @@
     renderCats();
     renderShopSelect();
     if (S.item) $("item-input").value = S.item[lang];
+    showItemCategory();
     showBrandMsg();
     renderResult();
     updateInfo();

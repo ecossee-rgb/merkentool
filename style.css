@@ -200,3 +200,7 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px
 /* saved price that no longer exists in the catalogue */
 .stale-box { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: #fdf3cc; border: 1px solid #e8cf7a; }
 .stale-box p { margin: 0 0 4px; color: #6b4e00; }
+
+/* category of the chosen article (as in the price lists) */
+.item-cat { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: #eef5e8; color: var(--green-dark); }
+.item-cat .label { font-weight: 400; }
